@@ -14,7 +14,6 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Header -->
@@ -23,17 +22,27 @@
                 VerticalAlignment="Center"
                 Style="{StaticResource BodyStrongTextBlockStyle}"
                 Text="Wireless devices" />
-            <Button
-                x:Name="RefreshButton"
-                HorizontalAlignment="Right"
-                Padding="8"
-                AutomationProperties.Name="Refresh"
-                Background="Transparent"
-                BorderThickness="0"
-                Click="RefreshButton_Click"
-                ToolTipService.ToolTip="Refresh">
-                <FontIcon FontSize="14" Glyph="&#xE72C;" />
-            </Button>
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                <Button
+                    x:Name="RefreshButton"
+                    Padding="8"
+                    AutomationProperties.Name="Refresh"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="RefreshButton_Click"
+                    ToolTipService.ToolTip="Refresh">
+                    <FontIcon FontSize="14" Glyph="&#xE72C;" />
+                </Button>
+                <Button
+                    Padding="8"
+                    AutomationProperties.Name="Settings"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="SettingsButton_Click"
+                    ToolTipService.ToolTip="Settings">
+                    <FontIcon FontSize="14" Glyph="&#xE713;" />
+                </Button>
+            </StackPanel>
         </Grid>
 
         <!-- Device list -->
@@ -105,18 +114,5 @@
                     Visibility="{x:Bind ViewModel.HasNoDevices, Mode=OneWay}" />
             </StackPanel>
         </ScrollViewer>
-
-        <!-- Footer -->
-        <Button
-            Grid.Row="2"
-            HorizontalAlignment="Right"
-            Padding="8"
-            AutomationProperties.Name="Settings"
-            Background="Transparent"
-            BorderThickness="0"
-            Click="SettingsButton_Click"
-            ToolTipService.ToolTip="Settings">
-            <FontIcon FontSize="14" Glyph="&#xE713;" />
-        </Button>
     </Grid>
 </Window>
