@@ -93,6 +93,12 @@ powershell -File tools/make-icon.ps1  # regenerate Assets/AppIcon.ico + AppIcon.
     `DeviceInformation.FindAllAsync`) fail at runtime with "Failed to create a CCW". Probe/tests run JIT and won't
     catch this — always smoke-test the published build (popup, Bluetooth row, a toast, the settings window).
   - The AOT linker finds MSVC via `vswhere.exe`, which isn't on PATH by default; `tools/publish.ps1` handles it.
+- Popup sizing: the content must fit the **client** area (window minus border). Size the window as content + actual
+  frame (`AppWindow.Size - AppWindow.ClientSize`); `AppWindow.ResizeClient` over-allocates by a caption bar the popup
+  doesn't have. The device list shows at most 5 rows (`MaxVisibleDevices`) before it scrolls.
+- Debug builds: set `WIRELESSSTATUS_FAKE_DEVICES=N` to add N made-up devices (`Diagnostics/FakeDeviceProvider`,
+  compiled out of Release) — for testing list layout/scrolling. UIA `ScrollPattern.VerticallyScrollable` on the popup
+  tells whether the list scrolls.
 - Memory (AOT, measured): ~71 MB working set / ~61 MB private idle before the popup is first opened, ~108/~90 MB
   after. The popup is created lazily and then kept: closing a WinUI window does **not** return that memory (measured),
   so releasing it only adds latency. Idle CPU ≈ 50 ms per minute.

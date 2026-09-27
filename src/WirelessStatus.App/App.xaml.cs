@@ -76,10 +76,12 @@ public partial class App : Application
         _settings = _settingsStore.Load();
         Autostart.UpdatePathIfEnabled();
 
-        _monitor = new DeviceMonitor(
-            [new RazerProvider(), new AudezeMaxwellProvider(), new BluetoothBatteryProvider()],
-            _settings.PollInterval,
-            log: Log);
+        List<IBatteryProvider> providers = [new RazerProvider(), new AudezeMaxwellProvider(), new BluetoothBatteryProvider()];
+#if DEBUG
+        if (Diagnostics.FakeDeviceProvider.FromEnvironment() is { } fake)
+            providers.Add(fake);
+#endif
+        _monitor = new DeviceMonitor(providers, _settings.PollInterval, log: Log);
         _monitor.Updated += (_, snapshot) => _dispatcher.TryEnqueue(() => OnSnapshot(snapshot));
 
         _tray = new TrayIcon(IconPath, "WirelessStatus — checking devices…");

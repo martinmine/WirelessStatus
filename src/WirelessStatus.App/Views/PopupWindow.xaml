@@ -37,9 +37,15 @@
         </Grid>
 
         <!-- Device list -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer
+            x:Name="DeviceScroller"
+            Grid.Row="1"
+            VerticalScrollBarVisibility="Auto">
             <StackPanel>
-                <ItemsControl IsTabStop="False" ItemsSource="{x:Bind ViewModel.Devices}">
+                <ItemsControl
+                    x:Name="DeviceList"
+                    IsTabStop="False"
+                    ItemsSource="{x:Bind ViewModel.Devices}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate x:DataType="vm:DeviceViewModel">
                             <Grid
@@ -101,22 +107,16 @@
         </ScrollViewer>
 
         <!-- Footer -->
-        <Grid Grid.Row="2">
-            <TextBlock
-                VerticalAlignment="Center"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource CaptionTextBlockStyle}"
-                Text="{x:Bind ViewModel.LastUpdatedText, Mode=OneWay}" />
-            <Button
-                HorizontalAlignment="Right"
-                Padding="8"
-                AutomationProperties.Name="Settings"
-                Background="Transparent"
-                BorderThickness="0"
-                Click="SettingsButton_Click"
-                ToolTipService.ToolTip="Settings">
-                <FontIcon FontSize="14" Glyph="&#xE713;" />
-            </Button>
-        </Grid>
+        <Button
+            Grid.Row="2"
+            HorizontalAlignment="Right"
+            Padding="8"
+            AutomationProperties.Name="Settings"
+            Background="Transparent"
+            BorderThickness="0"
+            Click="SettingsButton_Click"
+            ToolTipService.ToolTip="Settings">
+            <FontIcon FontSize="14" Glyph="&#xE713;" />
+        </Button>
     </Grid>
 </Window>

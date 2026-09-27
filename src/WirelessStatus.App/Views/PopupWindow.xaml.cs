@@ -20,6 +20,7 @@ public sealed partial class PopupWindow : Window
     private const double WidthDip = 360;
     private const double MarginDip = 12;
     private const double MaxHeightFraction = 0.8;
+    private const int MaxVisibleDevices = 5;
 
     private RectInt32 _anchor;
     private bool _allowClose;
@@ -87,12 +88,19 @@ public sealed partial class PopupWindow : Window
         var work = display.WorkArea;
         var scale = GetScale(display);
 
+        LimitVisibleDevices();
         Root.Measure(new Size(WidthDip, double.PositiveInfinity));
         var heightDip = Root.DesiredSize.Height > 0 ? Root.DesiredSize.Height : 200;
 
         var margin = (int)Math.Round(MarginDip * scale);
-        var width = (int)Math.Round(WidthDip * scale);
-        var height = Math.Min((int)Math.Ceiling(heightDip * scale), (int)(work.Height * MaxHeightFraction));
+        var clientWidth = (int)Math.Round(WidthDip * scale);
+        var clientHeight = Math.Min((int)Math.Ceiling(heightDip * scale), (int)(work.Height * MaxHeightFraction));
+
+        // The content must fit the client area, which is smaller than the window by the border. Sizing the window to
+        // the content height left the client a few pixels short and put a scrollbar on the list. ResizeClient doesn't
+        // help: it budgets for a caption bar this window doesn't have (31 px too tall). So add the actual frame size.
+        var width = clientWidth + AppWindow.Size.Width - AppWindow.ClientSize.Width;
+        var height = clientHeight + AppWindow.Size.Height - AppWindow.ClientSize.Height;
 
         var (x, y) = GetTaskbarEdge(display) switch
         {
@@ -105,6 +113,26 @@ public sealed partial class PopupWindow : Window
         x = Math.Clamp(x, work.X + margin, Math.Max(work.X + margin, work.X + work.Width - width - margin));
         y = Math.Clamp(y, work.Y + margin, Math.Max(work.Y + margin, work.Y + work.Height - height - margin));
         AppWindow.MoveAndResize(new RectInt32(x, y, width, height));
+    }
+
+    /// <summary>Caps the list at <see cref="MaxVisibleDevices"/> rows; any further devices scroll.</summary>
+    private void LimitVisibleDevices()
+    {
+        DeviceScroller.MaxHeight = double.PositiveInfinity;
+        if (ViewModel.Devices.Count <= MaxVisibleDevices)
+            return;
+
+        // Rows differ in height (unavailable devices have no level bar), so measure the ones that will be visible.
+        DeviceList.Measure(new Size(WidthDip, double.PositiveInfinity));
+        var visibleHeight = 0.0;
+        for (var i = 0; i < MaxVisibleDevices; i++)
+        {
+            if (DeviceList.ContainerFromIndex(i) is UIElement row)
+                visibleHeight += row.DesiredSize.Height;
+        }
+
+        if (visibleHeight > 0)
+            DeviceScroller.MaxHeight = visibleHeight;
     }
 
     private static int CenterOn(int start, int length, int size) => start + length / 2 - size / 2;

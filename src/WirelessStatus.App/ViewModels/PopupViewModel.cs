@@ -10,9 +10,6 @@ public sealed partial class PopupViewModel : ObservableObject
     public ObservableCollection<DeviceViewModel> Devices { get; } = [];
 
     [ObservableProperty]
-    public partial string LastUpdatedText { get; set; } = "Checking devices…";
-
-    [ObservableProperty]
     public partial bool HasNoDevices { get; set; }
 
     /// <summary>Applies a snapshot, updating existing rows in place so the list doesn't flicker.</summary>
@@ -44,7 +41,6 @@ public sealed partial class PopupViewModel : ObservableObject
         }
 
         HasNoDevices = Devices.Count == 0;
-        LastUpdatedText = $"Updated {snapshot.UpdatedAt.ToLocalTime():t}";
     }
 
     /// <summary>The device the tray icon should represent: the available one with the lowest level, if any.</summary>
