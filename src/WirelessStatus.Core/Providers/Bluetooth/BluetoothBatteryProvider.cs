@@ -55,7 +55,7 @@ public sealed class BluetoothBatteryProvider(Action<string>? log = null) : IBatt
             readings.Add(new BatteryReading(
                 $"bt:{containerId?.ToString() ?? node.Id}",
                 node.Name,
-                DeviceKind.Unknown,
+                DeviceKind.Bluetooth,
                 isConnected ? DeviceState.Connected : DeviceState.Unavailable,
                 isConnected ? level : null,
                 null));

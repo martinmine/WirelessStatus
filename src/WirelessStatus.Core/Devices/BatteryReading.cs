@@ -7,6 +7,9 @@ public enum DeviceKind
     Mouse,
     Keyboard,
     Controller,
+
+    /// <summary>A Bluetooth device whose specific type has not been determined.</summary>
+    Bluetooth,
 }
 
 public enum DeviceState

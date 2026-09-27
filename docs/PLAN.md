@@ -10,8 +10,8 @@ proprietary 2.4 GHz dongles (Audeze Maxwell, Razer DeathAdder V4 Pro) — and no
 | Language/runtime | C# / .NET 10, Native AOT (x64) |
 | UI | WinUI 3 (Windows App SDK, self-contained, unpackaged) |
 | Tray icon | Own `Shell_NotifyIcon` implementation via CsWin32 (no third-party tray lib) |
-| Popup | Borderless WinUI 3 window with Mica, anchored above the tray icon (`Shell_NotifyIconGetRect`) |
-| Notifications | Windows App SDK `AppNotificationManager` |
+| Popup | Borderless WinUI 3 window with acrylic, anchored above the tray icon (`Shell_NotifyIconGetRect`) |
+| Notifications | Classic `Windows.UI.Notifications` toasts + HKCU AUMID (Windows App SDK `AppNotificationManager` is broken for self-contained unpackaged apps, WindowsAppSDK#6774) |
 | HID | Hand-written `LibraryImport` P/Invoke (`hid.dll`, `cfgmgr32.dll`, `kernel32.dll`) in Core |
 | Bluetooth | `Windows.Devices.Enumeration`, `DEVPKEY_Bluetooth_Battery` |
 | MVVM | CommunityToolkit.Mvvm |
@@ -31,18 +31,36 @@ proprietary 2.4 GHz dongles (Audeze Maxwell, Razer DeathAdder V4 Pro) — and no
 
 ## Milestones
 
-- **M0 – Scaffold**: solution, projects, shared build props. *(minimal version done alongside M1; WinUI app project still to add)*
+- **M0 – Scaffold**: solution, projects, shared build props. *(done alongside M1/M2; WinUI app project added in M3)*
 - **M1 – Device spike** ✅: `tools/WirelessStatus.Probe` reads battery from Razer, Audeze and Bluetooth.
-- **M2 – Core**: `DeviceMonitor` (polling, `WM_DEVICECHANGE` refresh), `AlertPolicy` (one alert per discharge
-  cycle, reset on charge/recovery, ignore one-off dips/0% on wake), `SettingsStore`, unit tests.
-- **M3 – Tray + popup**: WinUI app project, tray icon, popup positioning (any taskbar edge, multi-monitor), context menu.
-- **M4 – Notifications + settings**: toasts, settings window, autostart (HKCU Run key), single instance, dynamic tray icon.
-- **M5 – Polish**: idle CPU/RAM check, log file, AOT publish.
+- **M2 – Core** ✅: `DeviceMonitor` (interval polling, debounced `RequestRefresh()` for hot-plug, parallel providers with
+  timeout, failed provider keeps last readings), `AlertPolicy` (single threshold; one alert per discharge cycle; re-arm
+  on charging or recovery to threshold + 5; 0% must be seen twice; unavailable devices ignored; per-device
+  mute/hide), `SettingsStore` (JSON, atomic save), Razer wired/receiver merged into one device, 35 xUnit tests,
+  `Probe watch` for live end-to-end testing.
+- **M3 – Tray + popup** ✅: unpackaged self-contained WinUI 3 app (`WirelessStatus.exe`); CsWin32 tray icon with
+  tooltip listing devices; left-click toggles a frameless acrylic popup anchored above the icon (taskbar on any edge,
+  per-monitor DPI, sized to content, hides on focus loss/Esc/second click); device rows with type icon (generic
+  Bluetooth icon for BT devices), level bar (error colour when low), charging bolt, dimmed "Unavailable" rows;
+  right-click menu (Refresh, Exit); `WM_DEVICECHANGE` → `RequestRefresh()`; refresh on popup open.
+- **M4 – Notifications + settings** ✅: `AlertPolicy` → low-battery toasts (click opens the popup while running);
+  settings window (threshold 1–50%, poll interval, Start with Windows, per-device rename/show/notify, saves on every
+  change, normalises out-of-range values); autostart via HKCU Run key (menu item + settings); single instance (second
+  launch opens the running instance's popup); tray icon drawn as a battery at the lowest device's level (theme-aware,
+  red when low, green when charging, crisp at any DPI); popup footer settings button; file log. Switched the App from
+  the Windows App SDK metapackage to the WinUI component (output 154 MB → 95 MB).
+- **M5 – Polish**: idle CPU/RAM check (Debug build ~145 MB working set), trimming/AOT publish, a real app icon.
 
-## Open issues from M1
+## Open issues
 
-- ✅ Bluetooth: stale values for disconnected devices — fixed by checking `System.Devices.Aep.IsConnected` via container id.
-  Still to verify the connected case with the Xbox controller turned on.
-- Keychron K3 Pro (Bluetooth) is paired but exposes no battery property — investigate later.
-- ✅ Audeze % confirmed accurate against Audeze HQ. Not yet tested with Audeze HQ running.
-- Razer wired (`00BE`) and wireless (`00BF`) show up as separate devices if both are connected — dedupe in M2.
+- **App icon** is still the WinUI template placeholder (shows in toasts and the settings window title bar).
+- Toast clicks only work while the app is running (no COM activator with the classic toast API). Switch back to
+  `AppNotificationManager` once microsoft/WindowsAppSDK#6774 is fixed in a release.
+- Audeze Maxwell charging state not decoded yet — needs a `maxwell-dump` capture with the cable unplugged to diff
+  against the charging capture.
+- Tray context menu renders light in dark mode — deferred by decision.
+- Windows 11 puts new tray icons in the overflow (^) area; the user has to pin it once via Settings → Personalization →
+  Taskbar → Other system tray icons.
+- Real mouse interaction (click-away to dismiss) verified only via simulated messages / UI Automation so far.
+- Keychron K3 Pro: ignored for now (paired but exposes no battery property).
+- ✅ Bluetooth stale values / slow queries, Razer wired+receiver dedupe, Audeze accuracy — resolved.

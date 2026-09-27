@@ -14,13 +14,14 @@ public sealed class RazerProvider(Action<string>? log = null) : IBatteryProvider
     private static readonly TimeSpan ResponseDelay = TimeSpan.FromMilliseconds(35);
     private const int MaxAttempts = 3;
 
-    private sealed record Model(string Name, DeviceKind Kind, byte TransactionId);
+    /// <param name="Key">Stable device id suffix, shared by a mouse's wired and receiver product ids so they merge into one device.</param>
+    private sealed record Model(string Key, string Name, DeviceKind Kind, byte TransactionId);
 
     // Add new models here. Transaction ids per model come from OpenRazer's razermouse_driver.c.
     private static readonly Dictionary<ushort, Model> Models = new()
     {
-        [0x00BE] = new("Razer DeathAdder V4 Pro", DeviceKind.Mouse, 0x1F), // wired
-        [0x00BF] = new("Razer DeathAdder V4 Pro", DeviceKind.Mouse, 0x1F), // HyperSpeed receiver
+        [0x00BE] = new("deathadder-v4-pro", "Razer DeathAdder V4 Pro", DeviceKind.Mouse, 0x1F), // wired
+        [0x00BF] = new("deathadder-v4-pro", "Razer DeathAdder V4 Pro", DeviceKind.Mouse, 0x1F), // HyperSpeed receiver
     };
 
     public string Name => "Razer";
@@ -28,16 +29,16 @@ public sealed class RazerProvider(Action<string>? log = null) : IBatteryProvider
     public async Task<IReadOnlyList<BatteryReading>> ReadAsync(CancellationToken cancellationToken = default)
     {
         var readings = new List<BatteryReading>();
-        var collectionsByPid = HidDevice.Enumerate(VendorId)
+        var collectionsByModel = HidDevice.Enumerate(VendorId)
             .Where(d => Models.ContainsKey(d.ProductId) && d.FeatureReportLength == RazerReport.FeatureReportLength)
-            .GroupBy(d => d.ProductId);
+            .GroupBy(d => Models[d.ProductId].Key);
 
-        foreach (var group in collectionsByPid)
+        foreach (var group in collectionsByModel)
         {
-            var model = Models[group.Key];
-            var reading = new BatteryReading($"razer:{VendorId:X4}:{group.Key:X4}", model.Name, model.Kind, DeviceState.Unavailable, null, null);
+            var model = Models[group.First().ProductId];
+            var reading = new BatteryReading($"razer:{model.Key}", model.Name, model.Kind, DeviceState.Unavailable, null, null);
 
-            // Several collections may declare the 91-byte feature report; use the first one that answers.
+            // Several collections (and both the cable and the receiver) may answer; use the first one that does.
             foreach (var info in group)
             {
                 log?.Invoke($"Razer: trying {info}");
@@ -70,10 +71,12 @@ public sealed class RazerProvider(Action<string>? log = null) : IBatteryProvider
 
         var charging = await SendAsync(device, RazerReport.Create(model.TransactionId, 0x07, 0x84, 0x02), cancellationToken);
 
-        // Level is reported as 0–255.
-        var level = (int)Math.Round(RazerReport.GetArgument(battery, 1) * 100 / 255.0);
+        var level = ToPercent(RazerReport.GetArgument(battery, 1));
         return (level, charging is null ? null : RazerReport.GetArgument(charging, 1) != 0);
     }
+
+    /// <summary>Razer reports battery as 0–255.</summary>
+    internal static int ToPercent(byte raw) => (int)Math.Round(raw * 100 / 255.0);
 
     private async Task<byte[]?> SendAsync(HidDevice device, byte[] request, CancellationToken cancellationToken)
     {

@@ -23,6 +23,9 @@ public sealed class AudezeMaxwellProvider(Action<string>? log = null) : IBattery
     private static readonly byte[] BatteryRequest = [0x06, 0x07, 0x80, 0x05, 0x5A, 0x03, 0x00, 0xD6, 0x0C];
     private static readonly byte[] BatteryMarker = [0xD6, 0x0C, 0x00, 0x00];
 
+    private const byte MessageStart = 0x05;
+    private const byte ReplyType = 0x5D;
+
     public string Name => "Audeze";
 
     public async Task<IReadOnlyList<BatteryReading>> ReadAsync(CancellationToken cancellationToken = default)
@@ -68,11 +71,10 @@ public sealed class AudezeMaxwellProvider(Action<string>? log = null) : IBattery
                 Array.Clear(buffer);
                 buffer[0] = InputReportId;
                 device.GetInputReport(buffer.AsSpan(0, info.InputReportLength));
-                log?.Invoke($"Audeze:   <- {Convert.ToHexString(buffer, 0, 24)}…");
+                log?.Invoke($"Audeze:   <- {Convert.ToHexString(buffer, 0, info.InputReportLength)}");
 
-                var index = buffer.AsSpan().IndexOf(BatteryMarker);
-                if (index >= 0 && index + BatteryMarker.Length < buffer.Length)
-                    return buffer[index + BatteryMarker.Length];
+                if (TryParseBattery(buffer) is { } level)
+                    return level;
             }
         }
         catch (System.ComponentModel.Win32Exception ex)
@@ -81,5 +83,45 @@ public sealed class AudezeMaxwellProvider(Action<string>? log = null) : IBattery
         }
 
         return null;
+    }
+
+    /// <summary>Finds the battery reply (<c>5D</c> message with payload <c>D6 0C 00 00 &lt;level&gt;</c>) in an input report.</summary>
+    internal static int? TryParseBattery(ReadOnlySpan<byte> report)
+    {
+        foreach (var (type, payload) in ParseMessages(report))
+        {
+            if (type == ReplyType && payload.AsSpan().StartsWith(BatteryMarker) && payload.Length > BatteryMarker.Length)
+            {
+                var level = payload[BatteryMarker.Length];
+                return level <= 100 ? level : null;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Splits input report 0x07 into its messages. Layout: <c>07 &lt;length&gt; 80</c> followed by <c>length</c> bytes of
+    /// messages, each <c>05 &lt;type&gt; &lt;payload length, LE16&gt; &lt;payload&gt;</c> (5B = request echo, 5D = reply).
+    /// Bytes past <c>length</c> are left over from earlier reports and must be ignored — they can contain stale replies.
+    /// </summary>
+    internal static List<(byte Type, byte[] Payload)> ParseMessages(ReadOnlySpan<byte> report)
+    {
+        var messages = new List<(byte, byte[])>();
+        if (report.Length < 3 || report[0] != InputReportId)
+            return messages;
+
+        var remaining = report.Slice(3, Math.Min(report[1], report.Length - 3));
+        while (remaining.Length >= 4 && remaining[0] == MessageStart)
+        {
+            var length = remaining[2] | (remaining[3] << 8);
+            if (4 + length > remaining.Length)
+                break;
+
+            messages.Add((remaining[1], remaining.Slice(4, length).ToArray()));
+            remaining = remaining[(4 + length)..];
+        }
+
+        return messages;
     }
 }
