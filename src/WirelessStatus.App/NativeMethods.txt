@@ -32,3 +32,11 @@ CreateIconIndirect
 DeleteObject
 WM_SETTINGCHANGE
 SetCurrentProcessExplicitAppUserModelID
+CreateCompatibleDC
+DeleteDC
+CreateDIBSection
+SelectObject
+CreateFont
+SetTextColor
+SetBkMode
+DrawText

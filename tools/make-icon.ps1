@@ -1,6 +1,6 @@
 # Generates src/WirelessStatus.App/Assets/AppIcon.ico: a white battery (with wireless arcs at larger sizes) on a
 # blue rounded square, at every size Windows asks for. Run from the repo root:  powershell -File tools/make-icon.ps1
-# (The tray icon is drawn at runtime by BatteryIconRenderer; this is the app/exe/toast icon.)
+# (The tray icon is drawn at runtime by TrayIconRenderer; this is the app/exe/toast icon.)
 param(
     [string]$Out = "src/WirelessStatus.App/Assets/AppIcon.ico",
     # Toast notifications need a PNG (an .ico IconUri shows the generic app icon instead).

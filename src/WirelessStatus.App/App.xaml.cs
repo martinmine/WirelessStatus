@@ -90,6 +90,7 @@ public partial class App : Application
         _tray.DevicesChanged += _monitor.RequestRefresh;
         _tray.ThemeChanged += UpdateTrayIcon;
         _tray.ShowRequested += ShowPopup;
+        UpdateTrayIcon();
 
         _notifications = new NotificationService(ToastIconPath, Log);
         _notifications.Invoked += () => _dispatcher.TryEnqueue(ShowPopup);
@@ -113,18 +114,9 @@ public partial class App : Application
     {
         _viewModel.Apply(snapshot, _settings);
         _tray.Tooltip = _viewModel.BuildTooltip();
-        UpdateTrayIcon();
     }
 
-    private void UpdateTrayIcon()
-    {
-        var lowest = _viewModel.LowestDevice;
-        _tray.SetIcon(BatteryIconRenderer.Render(
-            lowest is null ? null : (int)lowest.Level,
-            lowest?.IsLow == true,
-            lowest?.IsCharging == true,
-            _tray.Dpi));
-    }
+    private void UpdateTrayIcon() => _tray.SetIcon(TrayIconRenderer.Render(_tray.Dpi));
 
     private void OnTraySelected(PointInt32 point)
     {

@@ -43,9 +43,6 @@ public sealed partial class PopupViewModel : ObservableObject
         HasNoDevices = Devices.Count == 0;
     }
 
-    /// <summary>The device the tray icon should represent: the available one with the lowest level, if any.</summary>
-    public DeviceViewModel? LowestDevice => Devices.Where(d => d.IsAvailable).MinBy(d => d.Level);
-
     /// <summary>Text for the tray icon tooltip: one line per device.</summary>
     public string BuildTooltip()
     {
