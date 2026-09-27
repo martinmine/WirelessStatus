@@ -19,6 +19,7 @@ public sealed class AudezeMaxwellProvider(Action<string>? log = null) : IBattery
     // Audeze HQ spaces packets ~50–60 ms apart; the dongle misbehaves if requests come faster.
     private static readonly TimeSpan PacketDelay = TimeSpan.FromMilliseconds(60);
     private const int MaxReads = 5;
+    private const int MaxAttempts = 2;
 
     private static readonly byte[] BatteryRequest = [0x06, 0x07, 0x80, 0x05, 0x5A, 0x03, 0x00, 0xD6, 0x0C];
     private static readonly byte[] BatteryMarker = [0xD6, 0x0C, 0x00, 0x00];
@@ -61,20 +62,28 @@ public sealed class AudezeMaxwellProvider(Action<string>? log = null) : IBattery
 
         try
         {
-            device.Write(BatteryRequest);
-
-            // The response may not be the first input report available, so poll a few times.
             var buffer = new byte[Math.Max(info.InputReportLength, 62)];
-            for (var i = 0; i < MaxReads; i++)
-            {
-                await Task.Delay(PacketDelay, cancellationToken);
-                Array.Clear(buffer);
-                buffer[0] = InputReportId;
-                device.GetInputReport(buffer.AsSpan(0, info.InputReportLength));
-                log?.Invoke($"Audeze:   <- {Convert.ToHexString(buffer, 0, info.InputReportLength)}");
 
-                if (TryParseBattery(buffer) is { } level)
-                    return level;
+            // Now and then the dongle never answers a request (seen while Audeze HQ also talks to it), so resend once
+            // before reporting the headset as unavailable.
+            for (var attempt = 0; attempt < MaxAttempts; attempt++)
+            {
+                device.Write(BatteryRequest);
+
+                // The response may not be the first input report available, so poll a few times.
+                for (var i = 0; i < MaxReads; i++)
+                {
+                    await Task.Delay(PacketDelay, cancellationToken);
+                    Array.Clear(buffer);
+                    buffer[0] = InputReportId;
+                    device.GetInputReport(buffer.AsSpan(0, info.InputReportLength));
+                    log?.Invoke($"Audeze:   <- {Convert.ToHexString(buffer, 0, info.InputReportLength)}");
+
+                    if (TryParseBattery(buffer) is { } level)
+                        return level;
+                }
+
+                log?.Invoke("Audeze:   no battery reply");
             }
         }
         catch (System.ComponentModel.Win32Exception ex)

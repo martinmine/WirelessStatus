@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using WirelessStatus.Core.Devices;
 using WirelessStatus.Core.Monitoring;
 using WirelessStatus.Core.Settings;
 
@@ -15,7 +16,10 @@ public sealed partial class PopupViewModel : ObservableObject
     /// <summary>Applies a snapshot, updating existing rows in place so the list doesn't flicker.</summary>
     public void Apply(MonitorSnapshot snapshot, AppSettings settings)
     {
-        var visible = snapshot.Readings.Where(r => !settings.GetDevice(r.DeviceId).Hidden).ToList();
+        // Disconnected devices (receiver present but device off, or a Bluetooth device that isn't connected) are left out.
+        var visible = snapshot.Readings
+            .Where(r => r.State == DeviceState.Connected && !settings.GetDevice(r.DeviceId).Hidden)
+            .ToList();
 
         for (var i = Devices.Count - 1; i >= 0; i--)
         {

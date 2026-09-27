@@ -110,7 +110,7 @@
                 <TextBlock
                     Margin="0,8"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Text="No wireless devices found."
+                    Text="No connected wireless devices."
                     Visibility="{x:Bind ViewModel.HasNoDevices, Mode=OneWay}" />
             </StackPanel>
         </ScrollViewer>

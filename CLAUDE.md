@@ -124,6 +124,8 @@ powershell -File tools/make-icon.ps1  # regenerate Assets/AppIcon.ico + AppIcon.
   `HidD_GetInputReport` with report id `0x07`. Packets must be ≥ ~50–60 ms apart.
 - Input reports contain several queued sub-messages; the battery reply is `5D 05 00 D6 0C 00 00 <level>`.
   Search for `D6 0C 00 00` and take the next byte; poll a few input reports if not found.
+- ~1 in 5 requests gets no reply at all (only empty `07 00 80` reports) while Audeze HQ is running; re-sending the
+  request recovers it, so the provider makes 2 attempts before reporting `Unavailable`.
 - **Charging state: not supported by the headset** (closed). Plugged-in vs unplugged `maxwell-dump` captures differ
   only in the battery level, no unsolicited report is sent, and Audeze HQ itself has no charging indicator.
   `IsCharging` is always null for the Maxwell; don't guess it from a rising level (decided against).
