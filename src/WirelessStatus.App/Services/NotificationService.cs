@@ -17,7 +17,9 @@ namespace WirelessStatus.App.Services;
 /// </remarks>
 internal sealed class NotificationService
 {
-    private const string AppUserModelId = "WirelessStatus";
+    // Windows caches a toast's display name and icon per AUMID the first time it is used, so changing the icon later
+    // needs a new AUMID (this one replaced "WirelessStatus", whose cached icon was the template placeholder).
+    private const string AppUserModelId = "WirelessStatus.App";
 
     private readonly Action<string> _log;
     private readonly ToastNotifier? _notifier;

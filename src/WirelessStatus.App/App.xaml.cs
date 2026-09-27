@@ -35,6 +35,9 @@ public partial class App : Application
 
     private static readonly string IconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
 
+    // Toasts need a PNG; with an .ico the shell shows a generic icon.
+    private static readonly string ToastIconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.png");
+
     private readonly SettingsStore _settingsStore = new(Log);
     private readonly PopupViewModel _viewModel = new();
     private readonly AlertPolicy _alertPolicy = new();
@@ -43,7 +46,10 @@ public partial class App : Application
     private DispatcherQueue _dispatcher = null!;
     private DeviceMonitor _monitor = null!;
     private TrayIcon _tray = null!;
-    private PopupWindow _popup = null!;
+    // Created on first use: until then no XAML window exists, which saves ~30 MB. It is then kept (hidden), because
+    // WinUI doesn't give that memory back when a window is closed (measured), so recreating it would only add latency.
+    private PopupWindow? _popup;
+    private DateTimeOffset _popupHiddenAt;
     private NotificationService _notifications = null!;
     private SettingsWindow? _settingsWindow;
 
@@ -70,10 +76,6 @@ public partial class App : Application
         _settings = _settingsStore.Load();
         Autostart.UpdatePathIfEnabled();
 
-        _popup = new PopupWindow(_viewModel);
-        _popup.RefreshRequested += (_, _) => RefreshNow();
-        _popup.SettingsRequested += (_, _) => OpenSettings();
-
         _monitor = new DeviceMonitor(
             [new RazerProvider(), new AudezeMaxwellProvider(), new BluetoothBatteryProvider()],
             _settings.PollInterval,
@@ -87,7 +89,7 @@ public partial class App : Application
         _tray.ThemeChanged += UpdateTrayIcon;
         _tray.ShowRequested += ShowPopup;
 
-        _notifications = new NotificationService(IconPath, Log);
+        _notifications = new NotificationService(ToastIconPath, Log);
         _notifications.Invoked += () => _dispatcher.TryEnqueue(ShowPopup);
 
         Log($"Started {Environment.ProcessPath}");
@@ -124,13 +126,13 @@ public partial class App : Application
 
     private void OnTraySelected(PointInt32 point)
     {
-        if (_popup.IsOpen)
+        if (_popup?.IsOpen == true)
         {
             _popup.Hide();
             return;
         }
 
-        if (DateTimeOffset.UtcNow - _popup.LastHiddenAt < ReopenGuard)
+        if (DateTimeOffset.UtcNow - _popupHiddenAt < ReopenGuard)
             return;
 
         ShowPopup(new RectInt32(point.X, point.Y, 1, 1));
@@ -142,8 +144,21 @@ public partial class App : Application
     {
         // Without a click position (toast, second instance), anchor to the icon or the bottom-right of the screen.
         var anchor = _tray.GetBounds() ?? fallbackAnchor ?? BottomRightOfPrimaryDisplay();
-        _popup.ShowAt(anchor);
+        GetOrCreatePopup().ShowAt(anchor);
         RefreshNow();
+    }
+
+    private PopupWindow GetOrCreatePopup()
+    {
+        if (_popup is null)
+        {
+            _popup = new PopupWindow(_viewModel);
+            _popup.RefreshRequested += (_, _) => RefreshNow();
+            _popup.SettingsRequested += (_, _) => OpenSettings();
+            _popup.Hidden += (_, _) => _popupHiddenAt = DateTimeOffset.UtcNow;
+        }
+
+        return _popup;
     }
 
     private static RectInt32 BottomRightOfPrimaryDisplay()
@@ -154,7 +169,7 @@ public partial class App : Application
 
     private void OnTrayContextMenu(PointInt32 point)
     {
-        _popup.Hide();
+        _popup?.Hide();
         var autostart = Autostart.IsEnabled;
         var choice = _tray.ShowMenu(
         [
@@ -238,7 +253,7 @@ public partial class App : Application
         _settingsWindow?.Close();
         _tray.Dispose();
         await _monitor.DisposeAsync();
-        _popup.CloseForExit();
+        _popup?.Release();
         _singleInstance?.Dispose();
         Exit();
     }

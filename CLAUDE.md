@@ -39,6 +39,8 @@ dotnet run --project tools/WirelessStatus.Probe -- watch --threshold 60 --interv
 dotnet run --project tools/WirelessStatus.Probe -- maxwell-dump     # raw replies to all known Maxwell status reads
 dotnet run --project tools/WirelessStatus.Probe -- maxwell-listen 60  # unsolicited Maxwell reports
 dotnet build src/WirelessStatus.App   # then run bin/Debug/net10.0-windows10.0.26100.0/win-x64/WirelessStatus.exe
+powershell -File tools/publish.ps1    # Release: Native AOT folder in src/WirelessStatus.App/bin/publish (~64 MB)
+powershell -File tools/make-icon.ps1  # regenerate Assets/AppIcon.ico + AppIcon.png
 ```
 
 ## Conventions
@@ -73,7 +75,7 @@ dotnet build src/WirelessStatus.App   # then run bin/Debug/net10.0-windows10.0.2
   `0x7B` = WM_CONTEXTMENU, wParam = anchor y<<16|x) to the window of class `WirelessStatus.TrayWindow`, then screenshot.
 - **Toasts use classic `Windows.UI.Notifications`**, not the Windows App SDK `AppNotificationManager`: its `Register()`
   throws 0x8007007E in self-contained unpackaged apps (microsoft/WindowsAppSDK#6774, broken through 2.5.1). The AUMID
-  `WirelessStatus` is registered under `HKCU\Software\Classes\AppUserModelId`. Toast clicks only reach the app while
+  `WirelessStatus.App` is registered under `HKCU\Software\Classes\AppUserModelId`. Toast clicks only reach the app while
   it is running (no COM activator). Revisit when a fixed Windows App SDK ships.
 - The App references `Microsoft.WindowsAppSDK.WinUI` (+ pinned InteractiveExperiences), **not** the
   `Microsoft.WindowsAppSDK` metapackage — the metapackage adds AI/ML/Widgets/Search (~60 MB) to the self-contained output.
@@ -84,6 +86,18 @@ dotnet build src/WirelessStatus.App   # then run bin/Debug/net10.0-windows10.0.2
 - App log: `%LocalAppData%\WirelessStatus\log.txt` — check it first when something silently doesn't happen.
 - More UI testing without a mouse: UI Automation (Invoke/Toggle/Value patterns by `AutomationProperties.Name`) drives
   buttons and settings; `PrintWindow(hwnd, hdc, PW_RENDERFULLCONTENT)` captures windows that are behind others.
+- **Native AOT (Release publish) lessons** — each of these broke the published app while Debug worked:
+  - `EnableMsixTooling` must stay `true` even though the app is unpackaged; otherwise publish omits
+    `WirelessStatus.pri` (compiled XAML) and the app dies at startup with 0xC000027B in Microsoft.UI.Xaml.dll.
+  - Core needs `CsWinRTAotOptimizerEnabled=true`, or WinRT calls taking collections (e.g. the property list for
+    `DeviceInformation.FindAllAsync`) fail at runtime with "Failed to create a CCW". Probe/tests run JIT and won't
+    catch this — always smoke-test the published build (popup, Bluetooth row, a toast, the settings window).
+  - The AOT linker finds MSVC via `vswhere.exe`, which isn't on PATH by default; `tools/publish.ps1` handles it.
+- Memory (AOT, measured): ~71 MB working set / ~61 MB private idle before the popup is first opened, ~108/~90 MB
+  after. The popup is created lazily and then kept: closing a WinUI window does **not** return that memory (measured),
+  so releasing it only adds latency. Idle CPU ≈ 50 ms per minute.
+- Windows caches a toast's name/icon per AUMID on first use; changing the toast icon needs a new AUMID. Toast icons
+  must be PNG (`AppIcon.png`); an `.ico` IconUri shows the generic app icon.
 
 ## Device protocol notes (verified on the dev machine with M1 Probe)
 
@@ -103,9 +117,9 @@ dotnet build src/WirelessStatus.App   # then run bin/Debug/net10.0-windows10.0.2
   `HidD_GetInputReport` with report id `0x07`. Packets must be ≥ ~50–60 ms apart.
 - Input reports contain several queued sub-messages; the battery reply is `5D 05 00 D6 0C 00 00 <level>`.
   Search for `D6 0C 00 00` and take the next byte; poll a few input reports if not found.
-- Charging state not yet decoded: none of the known status replies changes with the cable plugged in, and no
-  unsolicited report is sent while charging. Next step: `maxwell-dump` with the cable unplugged and diff against a
-  charging capture.
+- **Charging state: not supported by the headset** (closed). Plugged-in vs unplugged `maxwell-dump` captures differ
+  only in the battery level, no unsolicited report is sent, and Audeze HQ itself has no charging indicator.
+  `IsCharging` is always null for the Maxwell; don't guess it from a rising level (decided against).
 - Input report 0x07 = `07 <len> 80` + `<len>` bytes of messages `05 <type> <payload len LE16> <payload>`
   (5B = request echo, 5C = ?, 5D = reply). Bytes past `<len>` are stale leftovers — never parse them.
   Firmware version reply: request `07 1C` → payload `07 1C 00 00 09 "v1.0.1.7"`.

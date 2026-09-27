@@ -39,25 +39,19 @@ public sealed partial class PopupWindow : Window
         AppWindow.IsShownInSwitchers = false;
         AppWindow.Closing += OnClosing;
         Activated += OnActivated;
-
-        // The list can grow or shrink after a refresh while the popup is open.
-        ViewModel.Devices.CollectionChanged += (_, _) =>
-        {
-            if (AppWindow.IsVisible)
-                DispatcherQueue.TryEnqueue(Reposition);
-        };
+        Closed += OnClosed;
+        ViewModel.Devices.CollectionChanged += OnDevicesChanged;
     }
 
     public PopupViewModel ViewModel { get; }
 
     public bool IsOpen => AppWindow.IsVisible;
 
-    /// <summary>When the popup was last hidden; used to ignore the tray click that caused it to lose focus.</summary>
-    public DateTimeOffset LastHiddenAt { get; private set; }
-
     public event EventHandler? RefreshRequested;
 
     public event EventHandler? SettingsRequested;
+
+    public event EventHandler? Hidden;
 
     /// <param name="anchor">Tray icon bounds (or the click point) in physical screen pixels.</param>
     public void ShowAt(RectInt32 anchor)
@@ -77,11 +71,11 @@ public sealed partial class PopupWindow : Window
         if (!AppWindow.IsVisible)
             return;
         AppWindow.Hide();
-        LastHiddenAt = DateTimeOffset.UtcNow;
+        Hidden?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Closes the window for real (app exit).</summary>
-    public void CloseForExit()
+    /// <summary>Closes the window for real, releasing its visual tree (app exit, or when it has been hidden a while).</summary>
+    public void Release()
     {
         _allowClose = true;
         Close();
@@ -154,6 +148,20 @@ public sealed partial class PopupWindow : Window
         return PInvoke.GetDpiForMonitor(monitor, MONITOR_DPI_TYPE.MDT_EFFECTIVE_DPI, out var dpiX, out _).Succeeded
             ? dpiX / 96.0
             : 1.0;
+    }
+
+    // The list can grow or shrink after a refresh while the popup is open.
+    private void OnDevicesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+    {
+        if (AppWindow.IsVisible)
+            DispatcherQueue.TryEnqueue(Reposition);
+    }
+
+    private void OnClosed(object sender, WindowEventArgs args)
+    {
+        // The view model outlives this window; drop every subscription to it so the window can be collected.
+        ViewModel.Devices.CollectionChanged -= OnDevicesChanged;
+        Bindings.StopTracking();
     }
 
     private void OnActivated(object sender, WindowActivatedEventArgs args)

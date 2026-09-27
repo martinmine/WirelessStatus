@@ -2,6 +2,10 @@
 
   <PropertyGroup>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Generate CsWinRT marshalling code for the WinRT calls in this library (e.g. passing string lists to
+         DeviceInformation.FindAllAsync). Without it those calls fail only at runtime under Native AOT. -->
+    <CsWinRTAotOptimizerEnabled>true</CsWinRTAotOptimizerEnabled>
+    <CsWinRTAotWarningLevel>2</CsWinRTAotWarningLevel>
   </PropertyGroup>
 
   <ItemGroup>

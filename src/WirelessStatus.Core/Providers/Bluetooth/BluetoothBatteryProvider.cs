@@ -29,12 +29,17 @@ public sealed class BluetoothBatteryProvider(Action<string>? log = null) : IBatt
         Windows.Devices.Bluetooth.BluetoothLEDevice.GetDeviceSelectorFromPairingState(true),
     ];
 
+    // Real arrays, not collection expressions: passed as IEnumerable<string>, a collection expression becomes a
+    // compiler-generated type that CsWinRT cannot marshal under Native AOT ("Failed to create a CCW").
+    private static readonly string[] NodeProperties = [BatteryProperty, ContainerIdProperty];
+    private static readonly string[] EndpointProperties = [AepContainerIdProperty, AepIsConnectedProperty];
+
     public string Name => "Bluetooth";
 
     public async Task<IReadOnlyList<BatteryReading>> ReadAsync(CancellationToken cancellationToken = default)
     {
         var nodesTask = DeviceInformation
-            .FindAllAsync(BluetoothNodesFilter, [BatteryProperty, ContainerIdProperty], DeviceInformationKind.Device)
+            .FindAllAsync(BluetoothNodesFilter, NodeProperties, DeviceInformationKind.Device)
             .AsTask(cancellationToken);
         var connectedTask = GetConnectedContainersAsync(cancellationToken);
         var nodes = await nodesTask;
@@ -72,7 +77,7 @@ public sealed class BluetoothBatteryProvider(Action<string>? log = null) : IBatt
     private async Task<HashSet<Guid>> GetConnectedContainersAsync(CancellationToken cancellationToken)
     {
         var results = await Task.WhenAll(PairedEndpointSelectors.Select(selector => DeviceInformation
-            .FindAllAsync(selector, [AepContainerIdProperty, AepIsConnectedProperty], DeviceInformationKind.AssociationEndpoint)
+            .FindAllAsync(selector, EndpointProperties, DeviceInformationKind.AssociationEndpoint)
             .AsTask(cancellationToken)));
 
         var connected = new HashSet<Guid>();
