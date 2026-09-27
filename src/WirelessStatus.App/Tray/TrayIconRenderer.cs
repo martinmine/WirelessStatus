@@ -7,7 +7,7 @@ using Windows.Win32.UI.WindowsAndMessaging;
 namespace WirelessStatus.App.Tray;
 
 /// <summary>
-/// Draws the tray icon: the Segoe Fluent "Devices" glyph (a keyboard and a peripheral), at the exact small-icon size for
+/// Draws the tray icon: a Segoe Fluent glyph of a small device with wireless arcs, at the exact small-icon size for
 /// the taskbar DPI and in the taskbar's theme colour, like the stock tray icons. Deliberately not a battery, which reads
 /// as the system's own battery icon; levels are in the tooltip and popup.
 /// </summary>
@@ -16,7 +16,7 @@ internal static unsafe class TrayIconRenderer
     private const uint White = 0xFFFFFFFF;
     private const uint Black = 0xFF1B1B1B;
     private const string GlyphFont = "Segoe Fluent Icons";
-    private const string Glyph = "\uE772"; // Devices
+    private const string Glyph = "\uE957"; // a small device with wireless arcs above it
 
     public static HICON Render(uint dpi)
     {

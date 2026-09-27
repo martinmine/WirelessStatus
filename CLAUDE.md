@@ -21,7 +21,7 @@ tests/WirelessStatus.Core.Tests  xUnit tests for Core (no hardware needed)
 src/WirelessStatus.App       WinUI 3 tray app (unpackaged, self-contained), exe name WirelessStatus.exe
   Tray/TrayIcon.cs           Shell_NotifyIcon via CsWin32: hidden top-level window, click/menu/TaskbarCreated/WM_DEVICECHANGE
   Views/PopupWindow          Frameless acrylic popup anchored above the tray icon, hides on focus loss / Esc
-  Tray/TrayIconRenderer      Draws the tray icon: the Segoe Fluent "Devices" glyph (U+E772) in the taskbar theme colour.
+  Tray/TrayIconRenderer      Draws the tray icon: Segoe Fluent U+E957 (device + wireless arcs) in the taskbar theme colour.
                              Not a battery shape — that reads as the system battery icon
   Views/SettingsWindow       Threshold, poll interval, autostart, per-device name/show/notify; saves on every change
   Services/                  NotificationService (toasts), Autostart (HKCU Run key)
